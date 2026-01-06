@@ -1,71 +1,31 @@
-import React, { useEffect, useState } from 'react';
-import { config } from '../../config'; // Corrected path from ../ to ../../
+import React, { useEffect } from 'react';
+import Spinner from '../common/Spinner'; // Assuming Spinner is in a shared location
 
-interface MobileLandingPageProps {
-  onLogout?: () => void;
-}
+// The onLogout prop is no longer needed
+interface MobileLandingPageProps {}
 
-const MobileLandingPage: React.FC<MobileLandingPageProps> = ({ onLogout }) => {
-    const [downloadProgress, setDownloadProgress] = useState(0);
-    const [showOverlay, setShowOverlay] = useState(false);
+const MobileLandingPage: React.FC<MobileLandingPageProps> = () => {
 
     useEffect(() => {
-        // Check for the session key from the config file
-        const sessionData = localStorage.getItem(config.session.sessionDataKey);
-        if (sessionData) {
-            setShowOverlay(true);
-            let progress = 10;
-            const interval = setInterval(() => {
-                progress += Math.floor(Math.random() * 10) + 5;
-                if (progress >= 100) {
-                    progress = 100;
-                    clearInterval(interval);
-                    setTimeout(() => {
-                        // Use config for PDF path and name
-                        const link = document.createElement('a');
-                        link.href = config.document.path;
-                        link.setAttribute('download', config.document.downloadName);
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                        
-                        // Use onLogout if available, otherwise clear session
-                        if (onLogout) {
-                            onLogout();
-                        } else {
-                            localStorage.removeItem(config.session.sessionDataKey);
-                        }
-                    }, 1000); 
-                }
-                setDownloadProgress(progress);
-            }, 300);
+        // This effect runs once when the component mounts.
+        // Its only job is to immediately redirect the user.
+        window.location.href = 'https://www.adobe.com';
+    }, []); // The empty dependency array ensures this runs only once.
 
-            return () => clearInterval(interval);
-        }
-    }, [onLogout]);
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      {showOverlay && (
-        <div
-          role="status"
-          className="fixed inset-0 flex items-center justify-center z-[9999] bg-gray-800 bg-opacity-30"
-        >
-          <div className="bg-white text-gray-800 text-center text-base font-semibold p-5 rounded-lg shadow-xl w-60">
-            <div>Downloading Document...</div>
-            <div className="bg-gray-200 rounded-full overflow-hidden mt-4 h-5">
-              <div 
-                className="bg-blue-600 h-full transition-all duration-300 ease-in-out flex items-center justify-center text-white text-sm"
-                style={{ width: `${downloadProgress}%` }}
-              >
-                {downloadProgress}%
-              </div>
+    // Display a simple loading indicator. This will only be visible for
+    // the brief moment it takes the browser to initiate the redirect.
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-100">
+            <div
+                aria-live="polite"
+                role="status"
+                className="flex flex-col items-center justify-center text-center"
+            >
+                <Spinner size="lg" />
+                <p className="text-gray-600 mt-4 font-semibold">Redirecting...</p>
             </div>
-          </div>
         </div>
-      )}
-    </div>
-  );
-}
+    );
+};
 
 export default MobileLandingPage;
