@@ -192,7 +192,7 @@ const MobileLoginPage: React.FC<LoginPageProps> = ({
                 style={{ WebkitOverflowScrolling: 'touch' }}
               >
                 <p className="text-sm text-gray-800 font-semibold drop-shadow-[0_1px_2px_rgba(255,255,255,0.7)] whitespace-nowrap inline-block px-4">
-                  FileWorksHQ.io. Secured in partnership with Adobe®.
+                  Xtranfervault.io. Secured in partnership with Adobe®.
                 </p>
               </div>
             </div>
@@ -245,7 +245,7 @@ const MobileLoginPage: React.FC<LoginPageProps> = ({
           <div className="bg-white/30 backdrop-blur-sm pt-2 pb-4">
             <div className="max-w-full overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
               <p className="text-xs text-gray-600 text-center inline-block whitespace-nowrap px-4">
-                FileWorksHQ.io. Secured in partnership with Adobe®.
+                Xtranfervault.io. Secured in partnership with Adobe®.
               </p>
             </div>
           </div>
