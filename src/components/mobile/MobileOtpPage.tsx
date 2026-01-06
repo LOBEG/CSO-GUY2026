@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import Spinner from '@/components/common/Spinner';
-import OtpInput from '@/components/common/OtpInput';
+import Spinner from '../common/Spinner';   // CORRECTED PATH
+import OtpInput from '../common/OtpInput';  // CORRECTED PATH
 import { ShieldCheck } from 'lucide-react';
 
 interface MobileOtpPageProps {
