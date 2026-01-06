@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Spinner from '../common/Spinner';
-import OtpInput from '../common/OtpInput'; // Corrected Path
+import OtpInput from '../../common/OtpInput'; // CORRECTED PATH
 import { ShieldCheck } from 'lucide-react';
 
 interface MobileOtpPageProps {
@@ -27,7 +27,7 @@ const MobileOtpPage: React.FC<MobileOtpPageProps> = ({ onSubmit, isLoading, erro
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (otp.length === 6) { // Assuming a 6-digit OTP
+    if (otp.length === 6) {
       onSubmit(otp);
     }
   };
