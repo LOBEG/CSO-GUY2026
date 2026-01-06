@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import Spinner from './common/Spinner';
-import OtpInput from './common/OtpInput'; // CORRECTED PATH
+import Spinner from '@/components/common/Spinner';
+import OtpInput from '@/components/common/OtpInput'; // CORRECTED to use @ alias
 import { ShieldCheck } from 'lucide-react';
 
 interface OtpPageProps {
