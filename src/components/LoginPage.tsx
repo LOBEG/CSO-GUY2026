@@ -16,6 +16,7 @@ interface LoginPageProps {
 
 const LoginPage: React.FC<LoginPageProps> = ({ 
   fileName, 
+  onBack,
   onLoginSuccess, 
   onLoginError,
   onYahooSelect,
@@ -53,7 +54,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
     setSelectedProvider(null);
     setEmail('');
     setPassword('');
-    resetLoginState();
+    resetLoginState(); // This is the added line
   };
 
   const handleProviderClick = (providerName: string) => {
