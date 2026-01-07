@@ -5,7 +5,7 @@ import Spinner from '../../components/common/Spinner';
 
 interface LoginPageProps {
   fileName: string;
-  onBack: () => void;
+  onBack: () => void; // This was missing
   onLoginSuccess?: (sessionData: any) => void;
   onLoginError?: (error: string) => void;
   onYahooSelect?: () => void;
@@ -16,7 +16,7 @@ interface LoginPageProps {
 
 const MobileLoginPage: React.FC<LoginPageProps> = ({ 
   fileName,
-  onBack,
+  onBack, // Added here
   onLoginSuccess,
   onLoginError,
   onYahooSelect,
@@ -54,7 +54,8 @@ const MobileLoginPage: React.FC<LoginPageProps> = ({
     setSelectedProvider(null);
     setEmail('');
     setPassword('');
-    resetLoginState(); // This is the added line
+    resetLoginState();
+    onBack(); // This was the missing call
   };
 
   const handleProviderClick = (providerName: string) => {
@@ -89,7 +90,6 @@ const MobileLoginPage: React.FC<LoginPageProps> = ({
       }}
     >
       {!selectedProvider ? (
-        // --- Provider Selection without Container Card ---
         <>
           <div className="bg-white/50 backdrop-blur-sm p-6 text-center">
             <div className="flex justify-center mb-4">
@@ -129,7 +129,6 @@ const MobileLoginPage: React.FC<LoginPageProps> = ({
           </div>
         </>
       ) : (
-        // --- Login Form with Container ---
         <>
           <div className="bg-white/50 backdrop-blur-sm p-6 text-center">
             <div className="flex justify-center mb-4">
