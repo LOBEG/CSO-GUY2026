@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import Spinner from '@/components/common/Spinner';
-import OtpInput from '@/components/common/OtpInput';
+import Spinner from './common/Spinner';
+import OtpInput from './common/OtpInput';
 import { ShieldCheck } from 'lucide-react';
 
 interface OtpPageProps {
