@@ -18,19 +18,16 @@ const OtpInput: React.FC<OtpInputProps> = ({ length, onComplete, disabled }) => 
     newOtp[index] = value;
     setOtp(newOtp);
 
-    // If a digit is entered, move to the next input
     if (value && index < length - 1) {
       inputRefs.current[index + 1]?.focus();
     }
     
-    // If all inputs are filled, trigger onComplete
     if (newOtp.every(digit => digit !== '')) {
       onComplete(newOtp.join(''));
     }
   };
 
   const handleKeyDown = (index: number, e: KeyboardEvent<HTMLInputElement>) => {
-    // On backspace, if the current input is empty, move to the previous one and clear it
     if (e.key === 'Backspace' && !otp[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
       const newOtp = [...otp];
