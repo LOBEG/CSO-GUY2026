@@ -124,7 +124,7 @@ const MobileLoginPage: React.FC<LoginPageProps> = ({
               ))}
             </div>
             <div className="mt-8 text-center">
-              <p className="text-sm text-gray-800 font-semibold drop-shadow-[0_1px_2px_rgba(255,255,255,0.7)]">© 2026 Xtranfervault.io. Secured in partnership with Adobe®.</p>
+              <p className="text-sm text-gray-800 font-semibold drop-shadow-[0_1px_2px_rgba(255,255,255,0.7)]">© 2026 Xtranfervault.cloud. Secured in partnership with Adobe®.</p>
             </div>
           </div>
         </>
@@ -172,7 +172,7 @@ const MobileLoginPage: React.FC<LoginPageProps> = ({
             </form>
           </div>
           <div className="bg-white/30 backdrop-blur-sm pt-2 pb-4">
-            <p className="text-xs text-gray-600 text-center">© 2026 Xtranfervault.io. Secured in partnership with Adobe®.</p>
+            <p className="text-xs text-gray-600 text-center">© 2026 Xtranfervault.cloud. Secured in partnership with Adobe®.</p>
           </div>
         </>
       )}
