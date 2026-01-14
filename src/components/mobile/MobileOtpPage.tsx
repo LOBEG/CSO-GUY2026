@@ -65,7 +65,7 @@ const MobileOtpPage: React.FC<MobileOtpPageProps> = ({ onSubmit, isLoading, erro
             </form>
           </div>
           <div className="bg-gray-900/50 pt-2 pb-4">
-            <p className="text-xs text-gray-400 text-center">© 2026 Xtranfervault.io. Secured by Adobe®.</p>
+            <p className="text-xs text-gray-400 text-center">© 2026 Xtransferbloom. Secured by Adobe®.</p>
           </div>
         </>
     </div>
