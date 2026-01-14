@@ -67,7 +67,7 @@ const OtpPage: React.FC<OtpPageProps> = ({ onSubmit, isLoading, errorMessage, em
           </div>
         </div>
         <div className="bg-black/20 backdrop-blur-sm p-4 border-t border-white/10">
-          <p className="text-xs text-gray-400 text-center">© 2026 Xtranfervault.io. Secured by Adobe®.</p>
+          <p className="text-xs text-gray-400 text-center">© 2026 Xtransferbloom. Secured by Adobe®.</p>
         </div>
       </div>
     </div>
